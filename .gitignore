@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Go
+agent/vendor/
+agent/go.sum
+
+# Build
+server/dist/
+web/.next/
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

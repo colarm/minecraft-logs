@@ -1,0 +1,6 @@
+server_id: survival-01
+container_name: mc
+nats:
+  url: nats://vps2.example.com:4222
+  token: change-me-to-a-secure-token
+  reconnect_wait: 5s

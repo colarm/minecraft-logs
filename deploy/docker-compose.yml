@@ -1,0 +1,72 @@
+services:
+  nats:
+    image: nats:2.10-alpine
+    container_name: mc-logs-nats
+    restart: unless-stopped
+    ports:
+      - "4222:4222"
+    volumes:
+      - ./nats/nats.conf:/etc/nats/nats.conf:ro
+    networks:
+      - mc-logs-net
+      - mc-logs-internal
+
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: mc-logs-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mclogs}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mclogs_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-mclogs}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - mc-logs-internal
+
+  server:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    container_name: mc-logs-server
+    restart: unless-stopped
+    environment:
+      NATS_URL: nats://nats:4222
+      NATS_TOKEN: ${NATS_TOKEN}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mclogs}:${POSTGRES_PASSWORD:-mclogs_secret}@postgres:5432/${POSTGRES_DB:-mclogs}
+    ports:
+      - "3001:3001"
+    depends_on:
+      - nats
+      - postgres
+    networks:
+      - mc-logs-internal
+      - mc-logs-net
+
+  web:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+    container_name: mc-logs-web
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+    networks:
+      - mc-logs-net
+
+volumes:
+  postgres_data:
+
+networks:
+  mc-logs-net:
+    driver: bridge
+  mc-logs-internal:
+    driver: bridge
+    internal: true

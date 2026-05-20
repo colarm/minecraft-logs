@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [timescaledb, uuid_ossp]
+}
+
+model Player {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique
+  serverId      String   @map("server_id")
+  name          String
+  firstSeen     DateTime @map("first_seen") @default(now())
+  lastSeen      DateTime @map("last_seen") @default(now())
+  totalPlayTime Int      @map("total_play_time") @default(0)
+  joinCount     Int      @map("join_count") @default(0)
+
+  @@map("players")
+  @@unique([serverId, name])
+}
+
+model ServerStatus {
+  serverId    String   @id @map("server_id")
+  currentTps  Float?   @map("current_tps")
+  onlineCount Int      @map("online_count") @default(0)
+  peakOnline  Int      @map("peak_online") @default(0)
+  lastUpdated DateTime @map("last_updated") @default(now())
+
+  @@map("server_status")
+}

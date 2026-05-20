@@ -1,0 +1,13 @@
+[Unit]
+Description=Minecraft Log Agent
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/mc-log-agent/agent --config /opt/mc-log-agent/config.yaml
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
