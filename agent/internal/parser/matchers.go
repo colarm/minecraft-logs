@@ -11,7 +11,7 @@ import (
 var dockerTSRe = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(.*)$`)
 
 // Minecraft log line: [14:30:00] [Server thread/INFO]: message
-var logLineRe = regexp.MustCompile(`^\[(\d{2}:\d{2}:\d{2})\]\s+\[([\w\-]+)/(\w+)\]:\s+(.*)$`)
+var logLineRe = regexp.MustCompile(`^\[(\d{2}:\d{2}:\d{2})\]\s+\[([^/]+)/(\w+)\]:\s+(.*)$`)
 
 type Matcher interface {
 	Match(serverID string, ts time.Time, level string, message string) (*Event, bool)
@@ -31,6 +31,16 @@ var matchers = []Matcher{
 	matchServerStart(),
 	matchServerStop(),
 	matchTps(),
+	matchWhitelistReject(),
+	matchLoginFail(),
+	matchConnect(),
+	matchBan(),
+	matchCommand(),
+	matchRcon(),
+	matchOp(),
+	matchAdvancement(),
+	matchGameMode(),
+	matchGameRule(),
 	matchError(),
 }
 
@@ -119,7 +129,7 @@ func matchDeath() Matcher {
 }
 
 func matchServerStart() Matcher {
-	re := regexp.MustCompile(`^(Done \(.+!\)|Starting minecraft server version)`)
+	re := regexp.MustCompile(`^(Done \([^)]+\)!|Starting minecraft server version)`)
 	return matcherFunc(func(serverID string, ts time.Time, level string, msg string) (*Event, bool) {
 		if re.MatchString(msg) {
 			return &Event{
@@ -168,6 +178,237 @@ func matchTps() Matcher {
 				ServerID:  serverID,
 				EventType: "tps",
 				Metadata:  map[string]interface{}{"tps": tps, "mspt": mspt, "source": "spark"},
+				Timestamp: ts,
+			}, true
+		}
+		return nil, false
+	})
+}
+
+func matchWhitelistReject() Matcher {
+	re := regexp.MustCompile(`^Disconnecting (\S+): You are not white-listed on this server!$`)
+	return matcherFunc(func(serverID string, ts time.Time, level string, msg string) (*Event, bool) {
+		m := re.FindStringSubmatch(msg)
+		if m == nil {
+			return nil, false
+		}
+		return &Event{
+			ServerID:   serverID,
+			EventType:  "whitelist_reject",
+			PlayerName: m[1],
+			Message:    msg,
+			Timestamp:  ts,
+		}, true
+	})
+}
+
+func matchLoginFail() Matcher {
+	re := regexp.MustCompile(`^Disconnecting (\S+): Failed to verify username!$`)
+	return matcherFunc(func(serverID string, ts time.Time, level string, msg string) (*Event, bool) {
+		m := re.FindStringSubmatch(msg)
+		if m == nil {
+			return nil, false
+		}
+		return &Event{
+			ServerID:   serverID,
+			EventType:  "login_fail",
+			PlayerName: m[1],
+			Message:    "Failed to verify username",
+			Timestamp:  ts,
+		}, true
+	})
+}
+
+func matchConnect() Matcher {
+	re := regexp.MustCompile(`^\[/([\d.]+):(\d+)\] logged in with entity id \d+ at`)
+	return matcherFunc(func(serverID string, ts time.Time, level string, msg string) (*Event, bool) {
+		m := re.FindStringSubmatch(msg)
+		if m == nil {
+			return nil, false
+		}
+		return &Event{
+			ServerID:  serverID,
+			EventType: "connect",
+			Metadata:  map[string]interface{}{"ip": m[1], "port": m[2]},
+			Message:   msg,
+			Timestamp: ts,
+		}, true
+	})
+}
+
+func matchBan() Matcher {
+	re1 := regexp.MustCompile(`^Disconnecting (\S+): You are banned from this server\.?(.*)$`)
+	re2 := regexp.MustCompile(`^Banned (\S+): (.+)$`)
+	return matcherFunc(func(serverID string, ts time.Time, level string, msg string) (*Event, bool) {
+		if m := re1.FindStringSubmatch(msg); m != nil {
+			meta := map[string]interface{}{"reason": "banned"}
+			if strings.TrimSpace(m[2]) != "" {
+				meta["detail"] = strings.TrimPrefix(strings.TrimSpace(m[2]), "Reason: ")
+			}
+			return &Event{
+				ServerID:   serverID,
+				EventType:  "ban",
+				PlayerName: m[1],
+				Metadata:   meta,
+				Message:    msg,
+				Timestamp:  ts,
+			}, true
+		}
+		if m := re2.FindStringSubmatch(msg); m != nil {
+			return &Event{
+				ServerID:   serverID,
+				EventType:  "ban",
+				PlayerName: m[1],
+				Message:    m[2],
+				Timestamp:  ts,
+			}, true
+		}
+		return nil, false
+	})
+}
+
+func matchCommand() Matcher {
+	re := regexp.MustCompile(`^(\S+) issued server command: (.+)$`)
+	return matcherFunc(func(serverID string, ts time.Time, level string, msg string) (*Event, bool) {
+		m := re.FindStringSubmatch(msg)
+		if m == nil {
+			return nil, false
+		}
+		return &Event{
+			ServerID:   serverID,
+			EventType:  "command",
+			PlayerName: m[1],
+			Message:    m[2],
+			Timestamp:  ts,
+		}, true
+	})
+}
+
+func matchRcon() Matcher {
+	// RCON/Console commands show as bare /command in the message.
+	// "issued by IP:port" suffix = came from RCON; bare = console or RCON without IP.
+	reWithSource := regexp.MustCompile(`^/(.+)\s+issued by\s+(.+)$`)
+	reBare := regexp.MustCompile(`^/(.+)$`)
+	return matcherFunc(func(serverID string, ts time.Time, level string, msg string) (*Event, bool) {
+		if m := reWithSource.FindStringSubmatch(msg); m != nil {
+			return &Event{
+				ServerID:  serverID,
+				EventType: "rcon",
+				Message:   m[1],
+				Metadata:  map[string]interface{}{"source": m[2]},
+				Timestamp: ts,
+			}, true
+		}
+		if m := reBare.FindStringSubmatch(msg); m != nil {
+			return &Event{
+				ServerID:  serverID,
+				EventType: "rcon",
+				Message:   m[1],
+				Timestamp: ts,
+			}, true
+		}
+		return nil, false
+	})
+}
+
+func matchOp() Matcher {
+	reGive := regexp.MustCompile(`^Made (\S+) a server operator$`)
+	reTake := regexp.MustCompile(`^(\S+) is no longer a server operator$`)
+	return matcherFunc(func(serverID string, ts time.Time, level string, msg string) (*Event, bool) {
+		if m := reGive.FindStringSubmatch(msg); m != nil {
+			return &Event{
+				ServerID:   serverID,
+				EventType:  "op",
+				PlayerName: m[1],
+				Metadata:   map[string]interface{}{"action": "grant"},
+				Timestamp:  ts,
+			}, true
+		}
+		if m := reTake.FindStringSubmatch(msg); m != nil {
+			return &Event{
+				ServerID:   serverID,
+				EventType:  "op",
+				PlayerName: m[1],
+				Metadata:   map[string]interface{}{"action": "revoke"},
+				Timestamp:  ts,
+			}, true
+		}
+		return nil, false
+	})
+}
+
+func matchAdvancement() Matcher {
+	re := regexp.MustCompile(`^(\S+) has (made the advancement|completed the challenge|completed the goal) \[(.+)\]$`)
+	return matcherFunc(func(serverID string, ts time.Time, level string, msg string) (*Event, bool) {
+		m := re.FindStringSubmatch(msg)
+		if m == nil {
+			return nil, false
+		}
+		return &Event{
+			ServerID:   serverID,
+			EventType:  "advancement",
+			PlayerName: m[1],
+			Message:    m[3],
+			Metadata:   map[string]interface{}{"type": m[2]},
+			Timestamp:  ts,
+		}, true
+	})
+}
+
+func matchGameMode() Matcher {
+	re1 := regexp.MustCompile(`^(\S+) changed game mode to (\S+)$`)
+	re2 := regexp.MustCompile(`^(\S+)'s game mode has been changed to (\S+)$`)
+	re3 := regexp.MustCompile(`^Set (\S+)'s game mode to (\S+)$`)
+	return matcherFunc(func(serverID string, ts time.Time, level string, msg string) (*Event, bool) {
+		if m := re1.FindStringSubmatch(msg); m != nil {
+			return &Event{
+				ServerID:   serverID,
+				EventType:  "game_mode",
+				PlayerName: m[1],
+				Metadata:   map[string]interface{}{"mode": m[2]},
+				Timestamp:  ts,
+			}, true
+		}
+		if m := re2.FindStringSubmatch(msg); m != nil {
+			return &Event{
+				ServerID:   serverID,
+				EventType:  "game_mode",
+				PlayerName: m[1],
+				Metadata:   map[string]interface{}{"mode": m[2]},
+				Timestamp:  ts,
+			}, true
+		}
+		if m := re3.FindStringSubmatch(msg); m != nil {
+			return &Event{
+				ServerID:   serverID,
+				EventType:  "game_mode",
+				PlayerName: m[1],
+				Metadata:   map[string]interface{}{"mode": m[2]},
+				Timestamp:  ts,
+			}, true
+		}
+		return nil, false
+	})
+}
+
+func matchGameRule() Matcher {
+	re1 := regexp.MustCompile(`^(\S+) changed the game rule: (\S+) = (.+)$`)
+	re2 := regexp.MustCompile(`^Game rule (\S+) has been changed to (.+)$`)
+	return matcherFunc(func(serverID string, ts time.Time, level string, msg string) (*Event, bool) {
+		if m := re1.FindStringSubmatch(msg); m != nil {
+			return &Event{
+				ServerID:   serverID,
+				EventType:  "game_rule",
+				PlayerName: m[1],
+				Metadata:   map[string]interface{}{"rule": m[2], "value": m[3]},
+				Timestamp:  ts,
+			}, true
+		}
+		if m := re2.FindStringSubmatch(msg); m != nil {
+			return &Event{
+				ServerID:  serverID,
+				EventType: "game_rule",
+				Metadata:  map[string]interface{}{"rule": m[1], "value": m[2]},
 				Timestamp: ts,
 			}, true
 		}

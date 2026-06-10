@@ -3,6 +3,7 @@ package parser
 import "time"
 
 type Event struct {
+	ID         string                 `json:"id"`
 	ServerID   string                 `json:"server_id"`
 	EventType  string                 `json:"event_type"`
 	PlayerName string                 `json:"player_name,omitempty"`

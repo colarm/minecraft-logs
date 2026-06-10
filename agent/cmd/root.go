@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -103,8 +105,10 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		case <-ctx.Done():
 			return nil
 		case line := <-t.Lines():
+			eventID := fmt.Sprintf("%x", sha256.Sum256([]byte(line)))
 			event := parser.ParseLine(cfg.ServerID, line)
 			if event != nil {
+				event.ID = eventID
 				pub.Publish(event)
 			}
 		}
