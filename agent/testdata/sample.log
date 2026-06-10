@@ -1,0 +1,94 @@
+# Minecraft Log Agent — 测试日志样本
+# 模拟 Docker logs --timestamps 的输出格式。Docker 在 Minecraft
+# 日志之前加上 RFC3339Nano 时间戳，所以完整格式为：
+#
+#   <DockerTS> <MinecraftTS> [Server thread/LEVEL]: message
+#
+# ================================================================
+# server_start
+2024-06-10T14:00:00.000000000Z [14:00:00] [Server thread/INFO]: Starting minecraft server version 1.21
+2024-06-10T14:00:03.123456789Z [14:00:03] [Server thread/INFO]: Done (3.215s)! For help, type "help"
+
+# player_join
+2024-06-10T14:30:01.111111111Z [14:30:01] [Server thread/INFO]: Steve joined the game
+2024-06-10T14:30:05.222222222Z [14:30:05] [Server thread/INFO]: Alex joined the game
+2024-06-10T14:30:10.333333333Z [14:30:10] [Server thread/INFO]: Notch joined the game
+
+# chat
+2024-06-10T14:31:00.444444444Z [14:31:00] [Server thread/INFO]: <Steve> hello everyone!
+2024-06-10T14:31:15.555555555Z [14:31:15] [Server thread/INFO]: <Alex> hi Steve, how's the build going?
+2024-06-10T14:31:30.666666666Z [14:31:30] [Server thread/INFO]: <Notch> anyone seen the redstone?
+
+# connect (player login with IP)
+2024-06-10T14:30:01.777777777Z [14:30:01] [Server thread/INFO]: [/1.2.3.4:54321] logged in with entity id 1234 at (world-47.5, 64.0, 212.5)
+2024-06-10T14:30:05.888888888Z [14:30:05] [Server thread/INFO]: [/4.3.2.1:55555] logged in with entity id 5678 at (world_nether-10.0, 80.0, -30.0)
+
+# death (various types)
+2024-06-10T14:32:00.000000001Z [14:32:00] [Server thread/INFO]: Steve was slain by Zombie
+2024-06-10T14:32:05.000000002Z [14:32:05] [Server thread/INFO]: Alex drowned
+2024-06-10T14:32:10.000000003Z [14:32:10] [Server thread/INFO]: Notch fell from a high place
+2024-06-10T14:32:15.000000004Z [14:32:15] [Server thread/INFO]: Steve tried to swim in lava
+2024-06-10T14:32:20.000000005Z [14:32:20] [Server thread/INFO]: Alex was killed by Creeper
+2024-06-10T14:32:25.000000006Z [14:32:25] [Server thread/INFO]: Notch starved
+2024-06-10T14:32:30.000000007Z [14:32:30] [Server thread/INFO]: Steve was pricked to death
+2024-06-10T14:32:35.000000008Z [14:32:35] [Server thread/INFO]: Alex froze to death
+2024-06-10T14:32:40.000000009Z [14:32:40] [Server thread/INFO]: Notch burned to death
+
+# player_leave (explicit leave + lost connection)
+2024-06-10T14:35:00.000000010Z [14:35:00] [Server thread/INFO]: Notch left the game
+2024-06-10T14:36:00.000000011Z [14:36:00] [Server thread/INFO]: Alex lost connection: Internal Exception: io.netty.handler.timeout.ReadTimeoutException
+
+# whitelist_reject
+2024-06-10T14:37:00.000000012Z [14:37:00] [Server thread/INFO]: Disconnecting Hacker: You are not white-listed on this server!
+
+# login_fail
+2024-06-10T14:38:00.000000013Z [14:38:00] [User Authenticator #1/INFO]: Disconnecting Bot: Failed to verify username!
+
+# ban
+2024-06-10T14:39:00.000000014Z [14:39:00] [Server thread/INFO]: Disconnecting Steve: You are banned from this server. Reason: Griefing
+2024-06-10T14:39:30.000000015Z [14:39:30] [Server thread/INFO]: Banned Alex: Repeated rule violations
+
+# command
+2024-06-10T14:40:00.000000016Z [14:40:00] [Server thread/INFO]: Steve issued server command: /gamemode creative
+2024-06-10T14:40:10.000000017Z [14:40:10] [Server thread/INFO]: Alex issued server command: /tp Notch 100 64 100
+
+# rcon
+2024-06-10T14:41:00.000000018Z [14:41:00] [RCON Listener #1/INFO]: /op Steve
+2024-06-10T14:41:30.000000019Z [14:41:30] [Rcon/INFO]: /say restarting soon issued by 127.0.0.1:25575
+
+# op (grant + revoke)
+2024-06-10T14:42:00.000000020Z [14:42:00] [Server thread/INFO]: Made Steve a server operator
+2024-06-10T14:42:30.000000021Z [14:42:30] [Server thread/INFO]: Alex is no longer a server operator
+
+# advancement
+2024-06-10T14:43:00.000000022Z [14:43:00] [Server thread/INFO]: Steve has made the advancement [Monsters Hunted]
+2024-06-10T14:43:10.000000023Z [14:43:10] [Server thread/INFO]: Alex has completed the challenge [How Did We Get Here?]
+2024-06-10T14:43:20.000000024Z [14:43:20] [Server thread/INFO]: Notch has completed the goal [Overkill]
+
+# game_mode (3 formats)
+2024-06-10T14:44:00.000000025Z [14:44:00] [Server thread/INFO]: Steve changed game mode to Creative
+2024-06-10T14:44:10.000000026Z [14:44:10] [Server thread/INFO]: Alex's game mode has been changed to Spectator
+2024-06-10T14:44:20.000000027Z [14:44:20] [Server thread/INFO]: Set Notch's game mode to Adventure
+
+# game_rule (2 formats)
+2024-06-10T14:45:00.000000028Z [14:45:00] [Server thread/INFO]: Steve changed the game rule: doDaylightCycle = false
+2024-06-10T14:45:10.000000029Z [14:45:10] [Server thread/INFO]: Game rule doDaylightCycle has been changed to true
+
+# tps (carpet format + spark format)
+2024-06-10T14:46:00.000000030Z [14:46:00] [Server thread/INFO]: TPS from last 60 seconds: 19.95
+2024-06-10T14:46:05.000000031Z [14:46:05] [Server thread/INFO]: MSPT: 45.2 TPS: 19.85
+
+# error / warn
+2024-06-10T14:47:00.000000032Z [14:47:00] [Server thread/ERROR]: Encountered an unexpected exception
+2024-06-10T14:47:10.000000033Z [14:47:10] [Server thread/WARN]: Can't keep up! Is the server overloaded?
+
+# server_stop
+2024-06-10T14:50:00.000000034Z [14:50:00] [Server thread/INFO]: Stopping server
+
+# ── 以下行没有 Docker 时间戳，测试 parseMCTime fallback ──
+[14:30:01] [Server thread/INFO]: Steve joined the game
+[14:31:05] [Server thread/INFO]: <Alex> hi from raw line
+
+# 以下是非匹配行（不会触发 event），确保 pipeline 安静跳过
+2024-06-10T14:48:00.000000035Z [14:48:00] [Server thread/INFO]: There are 3 of a max of 20 players online:
+2024-06-10T14:48:05.000000036Z [14:48:05] [Server thread/INFO]: UUID of player Steve is xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
