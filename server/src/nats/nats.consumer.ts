@@ -22,7 +22,7 @@ export class NatsConsumer implements OnModuleInit, OnModuleDestroy {
       maxReconnectAttempts: -1,
     });
 
-    this.logger.log(`Connected to NATS: ${nc.connected}`);
+    this.logger.log(`Connected to NATS at ${nc.getServer()}`);
 
     const jc = JSONCodec<MinecraftEvent>();
     const sub = nc.subscribe('minecraft.events.>', { queue: 'mc-logs-worker' });
